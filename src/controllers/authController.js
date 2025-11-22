@@ -87,7 +87,7 @@ exports.verifyAccount = asyncHandler(async (req, res) => {
  */
 exports.resendVerificationCode = asyncHandler(async (req, res) => {
     const {email, phone} = req.body;
-    if (!email || !phone) throw new CustomError("User not found", 404);
+    if (!email && !phone) throw new CustomError("User not found", 404);
     let user;
     const {otp, expiry} = otpGenerator();
     if (email) {
@@ -118,4 +118,8 @@ exports.resendVerificationCode = asyncHandler(async (req, res) => {
         await user.save();
         success(res, null, "Verification SMS sent successfully", 200);
     }
+})
+
+exports.uploadAvatar = asyncHandler(async (req, res) => {
+    
 })
