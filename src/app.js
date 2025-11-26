@@ -2,6 +2,7 @@ const express = require("express");
 const { globalErrorHandler } = require("./helpers/globalError");
 const cors = require("cors");
 const morgan = require("morgan");
+const path = require("node:path");
 
 const app = express();
 app.use(express.json());
@@ -29,7 +30,8 @@ app.use((req, res) => {
     status: "error"
   });
 });
-
+global.appRoot = path.resolve(__dirname)
+console.log(global.appRoot, "app root path");
 // global error handler
 app.use(globalErrorHandler);
 
