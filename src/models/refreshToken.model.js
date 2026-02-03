@@ -5,33 +5,64 @@ const {genSalt, hash} = bcrypt;
 const userSchema = require('./user.model');
 const {CustomError} = require('../helpers/customError');
 const {sign} = require("jsonwebtoken");
+refreshTokenSchema.methods.getRefreshToken = function () {
+    try {
+        return sign(
+            {userId: this._id},
+            process.env.REFRESH_TOKEN_SECRET,
+            {expiresIn: process.env.REFRESH_TOKEN_EXPIRY}
+        )
+
+    } catch (error) {
+        console.error(error);
+        throw new CustomError("Error getting refresh token", 500);
+    }
+}
 const refreshTokenSchema = new Schema({
     user: {
         type: Schema.Types.ObjectId,
         ref: 'User',
         required: true
     },
-
     tokenHash: {
         type: String,
         required: true
     },
-
     expiresAt: {
         type: Date,
-        required: true
+        required: true,
+        index: true
     },
-
     isRevoked: {
         type: Boolean,
-        default: false
+        default: false,
+        index: true
     },
-
-    createdByIp: String,
-    userAgent: String,
-
+    createdByIp: {
+        type: String,
+        default: null,
+    },
+    userAgent: {
+        type: String,
+        default: null,
+    },
+    revokedAt: {
+        type: Date,
+        default: null,
+    }, // Time of revocation
+    revokedReason: {
+        type: String,
+        default: null
+    },
+    revokedByIp: {
+        type: String,
+        default: null
+    },
 }, {timestamps: true});
-
+// TTL index to automatically delete expired tokens
+refreshTokenSchema.index({expiresAt: 1}, {expireAfterSeconds: 0});
+// Compound index to quickly find active tokens for a user
+refreshTokenSchema.index({user: 1, isRevoked: 1});
 // Hash token before saving
 refreshTokenSchema.pre('save', async function (next) {
     try {
@@ -45,7 +76,8 @@ refreshTokenSchema.pre('save', async function (next) {
         console.error(error);
     }
 })
-refreshTokenSchema.methods.comparePassword = function (token) {
+//Compare token (fixed - added await)
+refreshTokenSchema.methods.compareToken = function (token) {
     try {
         return bcrypt.compare(token, this.tokenHash);
     } catch (error) {
@@ -53,19 +85,60 @@ refreshTokenSchema.methods.comparePassword = function (token) {
         throw new CustomError("Error comparing token", 500);
     }
 }
-refreshTokenSchema.getRevoked = function () {
-    return this.isRevoked === true;
+// Check if token is Valid (not revoked and not expired)
+refreshTokenSchema.methods.isValid = function () {
+    return !this.isRevoked && new Date() < this.expiresAt;
 }
-refreshTokenSchema.methods.getRefreshToken = function () {
-    try {
-        return sign({
-            userId: this.user,
-        }, process.env.REFRESH_TOKEN_SECRET, {expiresIn: process.env.REFRESH_TOKEN_EXPIRY})
-    } catch (error) {
-        console.error(error);
-        throw new CustomError("Error getting refresh token", 500);
-    }
+// Check if token is Revoked
+refreshTokenSchema.methods.isRevokedToken = async function (ip = null, reason = null) {
+    this.isRevoked = true;
+    this.revokedAt = new Date();
+    this.revokedByIp = ip;
+    return this.save()
 }
+// create new refresh token
+refreshTokenSchema.statics.createToken = async function (userId, ip = null, userAgent = null) {
+    const token = crypto.randomBytes(40).toString('hex');
+    const expiresAt = new Date()
+    expiresAt.setDate(new Date() + expiresAt.getTime() + parseInt(process.env.REFRESH_TOKEN_EXPIRY));
+    const refreshToken = await this.create({
+        user: userId,
+        tokenHash: token,
+        expiresAt,
+        createdByIp: ip,
+        userAgent
+    });
+    return {refreshToken, token};
+}
+// find valid token by user
+refreshTokenSchema.statics.findValidTokenByUser = async function (userId) {
+    return await this.findOne({
+        user: userId,
+        isRevoked: false,
+        expiresAt: {$gt: new Date()}
+    })
+}
+// revoke all tokens for a user
+refreshTokenSchema.statics.revokeAllTokensForUser = async function (userId, ip = null, reason = null) {
+    return await this.updateMany({
+        user: userId,
+        isRevoked: false
+    }, {
+        isRevoked: true,
+        revokedAt: new Date(),
+        revokedReason: reason,
+    })
+}
+// remove expired tokens
+refreshTokenSchema.statics.removeExpiredTokens = async function (){
+    return await this.deleteMany({
+        $or:[
+            {expiresAt: {$lt: new Date()}},
+            {isRevoked: true, revokedAt: {$lt: new Date(Date.now() - 7*24*60*60*1000)}}
+        ]
 
+    })
+}
+module.exports = mongoose.models.RefreshToken || mongoose.model('RefreshToken', refreshTokenSchema);
 
 module.exports = mongoose.model('RefreshToken', refreshTokenSchema);

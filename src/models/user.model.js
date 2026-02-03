@@ -13,11 +13,11 @@ const userSchema = new Schema({
         lowercase: true
     },
 
-    password: {type: String, required: true},
+    password: {type: String, required: true, select: false},
 
     role: {
         type: String,
-        enum: ["ADMIN", "TEACHER", "STAFF"],
+        enum: ["ADMIN", "TEACHER", "STAFF", "STUDENT"],
         required: true
     },
 
@@ -25,6 +25,10 @@ const userSchema = new Schema({
         type: String,
         enum: ["ACTIVE", "INACTIVE"],
         default: "ACTIVE"
+    },
+    isDeleted: {
+        type: Boolean,
+        default: false
     },
 
     image: {
@@ -41,35 +45,56 @@ const userSchema = new Schema({
         ref: "Institute",
         required: true
     },
-
+    emailVerified: {
+        type: Boolean,
+        default: false
+    },
+    lastLoginAt: Date,
     invitedAt: Date,
     invitedBy: {type: Schema.Types.ObjectId, ref: "User"},
 
     resetPasswordTokenHash: String,
     resetPasswordExpires: Date
 
-}, {timestamps: true, versionKey: false});
+}, {
+    timestamps: true,
+    versionKey: false,
+    toJSON: {
+        transform: function(doc, ret) {
+            delete ret.password;
+            delete ret.resetPasswordToken;
+            delete ret.resetPasswordExpires;
+            return ret;
+        }
+    }
+});
 
-userSchema.index({email: 1}, {unique: true});
+userSchema.index(
+    { email: 1, isDeleted: 1 },
+    { unique: true }
+);
+
 
 
 // Hash password before saving
 userSchema.pre("save", async function (next) {
     try {
-        if (this.isModified("password")) {
-            const salt = await genSalt(10);
-            this.password = await hash(this.password, salt);
+        if(!this.isModified('password')) {
+            return next();
         }
-        next()
+        const salt = await genSalt(12);
+        this.password = await hash(this.password, salt);
+        next();
     } catch (error) {
         console.log(error);
         next(error);
     }
 })
 // Compare password method
-userSchema.methods.comparePassword = async function (password) {
+userSchema.methods.comparePassword = async function (userPassword) {
     try {
-        return await compare(password, this.password);
+        const password = await this.constructor.findById(this._id).select('password');
+        return compare(userPassword, password.password);
     } catch (error) {
         console.error(error);
         throw new CustomError("Error comparing passwords", 500);
@@ -81,9 +106,8 @@ userSchema.methods.getAccessToken = function () {
     try {
         return sign({
                 id: this._id,
-                email: this.email,
                 role: this.role,
-                phone: this.phone
+                institute: this.institute
             }, process.env.JWT_SECRET, {expiresIn: process.env.JWT_EXPIRES_IN}
         )
     } catch (error) {
