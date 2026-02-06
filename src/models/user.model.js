@@ -39,12 +39,12 @@ const userSchema = new Schema({
     phone: String,
     bio: String,
     dateOfBirth: Date,
-
-    institute: {
-        type: Schema.Types.ObjectId,
-        ref: "Institute",
-        required: true
-    },
+    //
+    // institute: {
+    //     type: Schema.Types.ObjectId,
+    //     ref: "Institute",
+    //     required: true
+    // },
     emailVerified: {
         type: Boolean,
         default: false

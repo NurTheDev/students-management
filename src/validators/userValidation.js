@@ -1,39 +1,124 @@
-const { z } = require("zod");
-const signUpSchema = z.object({
-    username: z.string().min(3, "Username must be at least 3 characters long"),
-    name: z.string().min(3, "Name is required"),
-    password: z.string().min(6, "Password must be at least 6 characters long"),
+const { z } = require('zod');
+const {
+    objectIdSchema,
+    emailSchema,
+    passwordSchema,
+    nameSchema,
+    phoneSchema,
+    dateSchema,
+    paginationSchema,
+    userRoleSchema,
+    statusSchema,
+} = require('./common.validator');
 
-    email: z.string().email("Invalid email address").optional(),
-    phone: z.string().min(10, "Phone number must be at least 10 digits long").optional(),
+// ==========================================
+// Create User (Admin)
+// ==========================================
 
-    bio: z.string().max(160).optional(),
+const createUserSchema = z.object({
+    name: nameSchema,
+    email: emailSchema,
+    password: passwordSchema,
+    role: userRoleSchema,
+    phone: phoneSchema,
+    bio: z
+        .string()
+        .max(500, "Bio cannot exceed 500 characters")
+        .trim()
+        .optional(),
+    dateOfBirth: dateSchema,
+    institute: objectIdSchema,
+});
 
-    dateOfBirth: z
+// ==========================================
+// Update User Profile (Self)
+// ==========================================
+
+const updateProfileSchema = z.object({
+    name: nameSchema.optional(),
+    phone: phoneSchema,
+    bio: z
+        .string()
+        .max(500, "Bio cannot exceed 500 characters")
+        .trim()
+        .optional()
+        .nullable(),
+    dateOfBirth: dateSchema,
+});
+
+// ==========================================
+// Update User (Admin)
+// ==========================================
+
+const updateUserSchema = z.object({
+    name: nameSchema.optional(),
+    phone: phoneSchema,
+    bio: z
+        .string()
+        .max(500, "Bio cannot exceed 500 characters")
+        .trim()
+        .optional()
+        .nullable(),
+    dateOfBirth: dateSchema,
+    emailVerified: z.boolean().optional(),
+});
+
+// ==========================================
+// Update User Role (Admin)
+// ==========================================
+
+const updateUserRoleSchema = z.object({
+    role: userRoleSchema,
+});
+
+// ==========================================
+// Update User Status (Admin)
+// ==========================================
+
+const updateUserStatusSchema = z.object({
+    status: statusSchema,
+});
+
+// ==========================================
+// Get Users Query (Admin)
+// ==========================================
+
+const getUsersQuerySchema = paginationSchema.extend({
+    role: userRoleSchema.optional(),
+    status: statusSchema.optional(),
+    institute: objectIdSchema.optional(),
+    emailVerified: z
         .string()
         .optional()
-        .refine(date => {
-            if (!date) return true;
-            const d = new Date(date);
-            return !isNaN(d.getTime());
-        }, "Invalid date format")
-        .transform(date => date ? new Date(date) : undefined),
+        .transform((val) => {
+            if (val === "true") return true;
+            if (val === "false") return false;
+            return undefined;
+        }),
+    sortBy: z
+        .enum(["createdAt", "name", "email", "role", "status", "lastLoginAt"])
+        .optional()
+        .default("createdAt"),
+    sortOrder: z
+        .enum(["asc", "desc"])
+        .optional()
+        .default("desc"),
+});
 
-    institute: z.string().max(100).optional(),
-    address: z.string().max(200).optional(),
-    city: z.string().max(100).optional(),
-    country: z.string().max(100).optional(),
-    state: z.string().max(100).optional(),
-    zipCode: z.string().max(20).optional(),
+// ==========================================
+// Param Schemas
+// ==========================================
 
-    role: z.string().optional(),
-    isActive: z.boolean().optional(),
-}).refine(
-    data => data.email || data.phone,
-    {
-        message: "Either email or phone must be provided",
-        path: ["email"],
-    }
-);
+const userIdParamSchema = z.object({
+    id: objectIdSchema,
+});
 
-module.exports = { signUpSchema };
+module.exports = {
+    createUserSchema,
+    updateProfileSchema,
+    updateUserSchema,
+    updateUserRoleSchema,
+    updateUserStatusSchema,
+    getUsersQuerySchema,
+    userIdParamSchema,
+};

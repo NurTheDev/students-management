@@ -11,11 +11,11 @@ app.use(cors());
 app.use(morgan("dev"));
 app.use(express.static("public"));
 
+
 // Health check endpoint
 app.get("/health", (req, res) => {
   res.status(200).json({ status: "OK", message: "Server is running" });
 });
-
 // default API prefix if not provided
 const API_VERSION = process.env.API_VERSION || "/api/v1";
 

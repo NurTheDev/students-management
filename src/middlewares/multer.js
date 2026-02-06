@@ -10,5 +10,5 @@ if (!fs.existsSync(uploadPath)) {
 
 //storage configuration
 const storage = multer.diskStorage({
-    destination: 
+    // destination:
 })
