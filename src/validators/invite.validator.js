@@ -2,9 +2,6 @@ const { z } = require('zod');
 const {
     objectIdSchema,
     emailSchema,
-    paginationSchema,
-    userRoleSchema,
-    inviteStatusSchema,
 } = require('./common.validator');
 
 // ==========================================
@@ -12,7 +9,6 @@ const {
 // ==========================================
 const createInviteSchema = z.object({
     email: emailSchema,
-    role: userRoleSchema.optional().default("STUDENT"),
     message: z
         .string()
         .max(500, "Message cannot exceed 500 characters")
@@ -28,41 +24,6 @@ const createInviteSchema = z.object({
         .default(48),
     token : z.string().length(64).optional(),
     invitedBy: objectIdSchema
-});
-
-// ==========================================
-// Bulk Create Invites
-// ==========================================
-
-const bulkInviteItemSchema = z.object({
-    email: emailSchema,
-    role: userRoleSchema.optional().default("STUDENT"),
-    metadata: z
-        .object({
-            name: z.string().trim().optional().nullable(),
-            phone: z.string().trim().optional().nullable(),
-        })
-        .optional(),
-});
-
-const bulkCreateInvitesSchema = z.object({
-    invites: z
-        .array(bulkInviteItemSchema)
-        .min(1, "At least one invite is required")
-        .max(50, "Cannot send more than 50 invites at once"),
-    message: z
-        .string()
-        .max(500, "Message cannot exceed 500 characters")
-        .trim()
-        .optional()
-        .nullable(),
-    expiryHours: z
-        .number()
-        .int()
-        .min(1)
-        .max(168)
-        .optional()
-        .default(48),
 });
 
 // ==========================================
@@ -114,8 +75,6 @@ const inviteTokenParamSchema = z.object({
 
 module.exports = {
     createInviteSchema,
-    bulkCreateInvitesSchema,
-    bulkInviteItemSchema,
     verifyInviteTokenSchema,
     revokeInviteSchema,
     resendInviteSchema,

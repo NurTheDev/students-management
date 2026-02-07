@@ -2,22 +2,9 @@ const mongoose = require('mongoose');
 const {Schema} = mongoose;
 const bcrypt = require('bcrypt');
 const {genSalt, hash} = bcrypt;
-const userSchema = require('./user.model');
+const crypto = require('crypto');
 const {CustomError} = require('../helpers/customError');
-const {sign} = require("jsonwebtoken");
-refreshTokenSchema.methods.getRefreshToken = function () {
-    try {
-        return sign(
-            {userId: this._id},
-            process.env.REFRESH_TOKEN_SECRET,
-            {expiresIn: process.env.REFRESH_TOKEN_EXPIRY}
-        )
 
-    } catch (error) {
-        console.error(error);
-        throw new CustomError("Error getting refresh token", 500);
-    }
-}
 const refreshTokenSchema = new Schema({
     user: {
         type: Schema.Types.ObjectId,
@@ -99,8 +86,7 @@ refreshTokenSchema.methods.isRevokedToken = async function (ip = null, reason = 
 // create new refresh token
 refreshTokenSchema.statics.createToken = async function (userId, ip = null, userAgent = null) {
     const token = crypto.randomBytes(40).toString('hex');
-    const expiresAt = new Date()
-    expiresAt.setDate(new Date() + expiresAt.getTime() + parseInt(process.env.REFRESH_TOKEN_EXPIRY));
+    const expiresAt = new Date(Date.now() + parseInt(process.env.REFRESH_TOKEN_EXPIRY));
     const refreshToken = await this.create({
         user: userId,
         tokenHash: token,

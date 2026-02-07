@@ -46,14 +46,6 @@ const dateSchema = z
     )
     .transform((date) => (date ? new Date(date) : null));
 
-// ==========================================
-// Enum Schemas
-// ==========================================
-
-const userRoleSchema = z.enum(["ADMIN", "TEACHER", "STAFF", "STUDENT"], {
-    errorMap: () => ({ message: "Role must be ADMIN, TEACHER, STAFF, or STUDENT" }),
-});
-
 const statusSchema = z.enum(["ACTIVE", "INACTIVE"], {
     errorMap: () => ({ message: "Status must be ACTIVE or INACTIVE" }),
 });
@@ -83,7 +75,6 @@ module.exports = {
     nameSchema,
     phoneSchema,
     dateSchema,
-    userRoleSchema,
     statusSchema,
     inviteStatusSchema,
     sortOrderSchema,

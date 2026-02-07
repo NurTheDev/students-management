@@ -6,7 +6,6 @@ const {
     nameSchema,
     phoneSchema,
     dateSchema,
-    paginationSchema,
     userRoleSchema,
     statusSchema,
 } = require('./common.validator');
@@ -19,7 +18,6 @@ const createUserSchema = z.object({
     name: nameSchema,
     email: emailSchema,
     password: passwordSchema,
-    role: userRoleSchema,
     phone: phoneSchema,
     bio: z
         .string()
@@ -27,7 +25,7 @@ const createUserSchema = z.object({
         .trim()
         .optional(),
     dateOfBirth: dateSchema,
-    institute: objectIdSchema,
+    token: z.string().optional(),
 });
 
 // ==========================================
@@ -80,32 +78,6 @@ const updateUserStatusSchema = z.object({
 });
 
 // ==========================================
-// Get Users Query (Admin)
-// ==========================================
-
-const getUsersQuerySchema = paginationSchema.extend({
-    role: userRoleSchema.optional(),
-    status: statusSchema.optional(),
-    institute: objectIdSchema.optional(),
-    emailVerified: z
-        .string()
-        .optional()
-        .transform((val) => {
-            if (val === "true") return true;
-            if (val === "false") return false;
-            return undefined;
-        }),
-    sortBy: z
-        .enum(["createdAt", "name", "email", "role", "status", "lastLoginAt"])
-        .optional()
-        .default("createdAt"),
-    sortOrder: z
-        .enum(["asc", "desc"])
-        .optional()
-        .default("desc"),
-});
-
-// ==========================================
 // Param Schemas
 // ==========================================
 
@@ -119,6 +91,5 @@ module.exports = {
     updateUserSchema,
     updateUserRoleSchema,
     updateUserStatusSchema,
-    getUsersQuerySchema,
     userIdParamSchema,
 };

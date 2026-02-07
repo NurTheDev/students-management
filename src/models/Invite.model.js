@@ -72,7 +72,18 @@ inviteSchema.virtual('isExpired').get(function () {
 inviteSchema.virtual('isAccepted').get(function () {
     return this.status === 'ACCEPTED';
 });
-
+// mark invite as accepted
+inviteSchema.statics.markAsAccepted = async function (token, userId) {
+    const invite = await this.findOne({token, status: "PENDING", expiresAt: {$gt: new Date()}});
+    if (!invite) {
+        throw new CustomError('Invalid or expired invite token', 400);
+    }
+    invite.status = "ACCEPTED";
+    invite.acceptedAt = new Date();
+    invite.acceptedByUser = userId;
+    await invite.save();
+    return invite;
+};
 
 const Invite = mongoose.models.inviteSchema || mongoose.model('Invite', inviteSchema);
 module.exports = Invite;
