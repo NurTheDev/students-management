@@ -411,7 +411,7 @@ const inviteTemplate = ({
 const welcomeTemplate = ({
                              userName,
                              role,
-                             instituteName,
+                             instituteName = "the company",
                              loginUrl,
                          }) => {
     const content = `

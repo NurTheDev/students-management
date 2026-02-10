@@ -179,5 +179,8 @@ userSchema.methods.restore = async function(originalEmail) {
     }
     return this.save({validateBeforeSave: false});
 }
-
+// Find by email with password for login
+userSchema.statics.findByEmailWithPassword = function(email) {
+    return this.findOne({email: email.toLowerCase().trim(), isDeleted: false}).select('+password');
+}
 module.exports = mongoose.models.User || mongoose.model('User', userSchema);
