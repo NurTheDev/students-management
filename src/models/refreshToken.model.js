@@ -36,7 +36,7 @@ const refreshTokenSchema = new Schema({
     revokedAt: {
         type: Date,
         default: null,
-    }, // Time of revocation
+    },
     revokedReason: {
         type: String,
         default: null
@@ -45,6 +45,10 @@ const refreshTokenSchema = new Schema({
         type: String,
         default: null
     },
+    replacedByToken : {
+        type: String,
+        default: null
+    }
 }, {timestamps: true});
 // TTL index to automatically delete expired tokens
 refreshTokenSchema.index({expiresAt: 1}, {expireAfterSeconds: 0});
@@ -77,10 +81,11 @@ refreshTokenSchema.methods.isValid = function () {
     return !this.isRevoked && new Date() < this.expiresAt;
 }
 // Check if token is Revoked
-refreshTokenSchema.methods.isRevokedToken = async function (ip = null, reason = null) {
+refreshTokenSchema.methods.revoke = async function (ip = null, reason = null) {
     this.isRevoked = true;
     this.revokedAt = new Date();
     this.revokedByIp = ip;
+    this.revokedReason = reason;
     return this.save()
 }
 // create new refresh token

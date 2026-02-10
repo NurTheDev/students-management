@@ -38,7 +38,10 @@ exports.registerUser = asyncHandler(async (req, res) => {
     // Mark invite as accepted
     await inviteSchema.markAsAccepted(token, newUser._id);
     const accessToken = newUser.getAccessToken();
-    const {refreshToken} = await refreshTokenSchema.createToken(newUser._id, req.ip, req.headers['user-agent']);
+    const {
+        refreshToken,
+        token: plainToken
+    } = await refreshTokenSchema.createToken(newUser._id, req.ip, req.headers['user-agent']);
     res.cookie("accessToken", accessToken, {
         httpOnly: true,
         maxAge: parseInt(process.env.ACCESS_TOKEN_EXPIRY_IN_MS),
@@ -46,7 +49,7 @@ exports.registerUser = asyncHandler(async (req, res) => {
         secure: process.env.NODE_ENV === "production",
         path: "/"
     });
-    res.cookie("refreshToken", refreshToken.tokenHash, {
+    res.cookie("refreshToken", plainToken, {
         httpOnly: true,
         maxAge: parseInt(process.env.REFRESH_TOKEN_EXPIRY),
         sameSite: "lax",
@@ -99,7 +102,10 @@ exports.loginUser = asyncHandler(async (req, res) => {
     }
     // Generate access token and refresh token
     const accessToken = userWithPassword.getAccessToken();
-    const {refreshToken} = await refreshTokenSchema.createToken(userWithPassword._id, req.ip, req.headers['user-agent']);
+    const {
+        refreshToken,
+        token
+    } = await refreshTokenSchema.createToken(userWithPassword._id, req.ip, req.headers['user-agent']);
     res.cookie("accessToken", accessToken, {
         httpOnly: true,
         maxAge: parseInt(process.env.ACCESS_TOKEN_EXPIRY_IN_MS),
@@ -107,7 +113,7 @@ exports.loginUser = asyncHandler(async (req, res) => {
         secure: process.env.NODE_ENV === "production",
         path: "/"
     });
-    res.cookie("refreshToken", refreshToken.tokenHash, {
+    res.cookie("refreshToken", token, {
         httpOnly: true,
         maxAge: parseInt(process.env.REFRESH_TOKEN_EXPIRY),
         sameSite: "lax",
@@ -132,12 +138,29 @@ exports.getRefreshToken = asyncHandler(async (req, res) => {
     if (!refreshToken) {
         throw new CustomError('Refresh token not found', 400);
     }
-    const storedToken = await refreshTokenSchema.findOne({tokenHash: refreshToken}).populate("user");
-    if (!storedToken || !storedToken.isValid()) {
+    const activeToken = await refreshTokenSchema.find({
+        isRevoked: false,
+        expiresAt: {$gt: new Date()}
+    }).populate("user");
+    let storedToken = null;
+    for (const token of activeToken) {
+        const isMatch = await token.compareToken(refreshToken);
+        if (isMatch) {
+            storedToken = token;
+            break;
+        }
+    }
+    if (!storedToken || !storedToken.isValid() || !storedToken.user || storedToken.user.status !== 'ACTIVE') {
         throw new CustomError('Invalid or expired refresh token', 400);
     }
     const user = storedToken.user;
+    // revoke old token
+    await storedToken.revoke(req.ip, "Used for refresh");
     const newAccessToken = user.getAccessToken();
+    const {refreshToken: newRefreshToken, token: newPlainToken} = await refreshTokenSchema.createToken(user._id, req.ip, req.headers['user-agent']);
+    // link old token with new token for audit
+    storedToken.replacedByToken = newRefreshToken._id;
+    await storedToken.save();
     res.cookie("accessToken", newAccessToken, {
         httpOnly: true,
         maxAge: parseInt(process.env.ACCESS_TOKEN_EXPIRY_IN_MS),
@@ -145,6 +168,13 @@ exports.getRefreshToken = asyncHandler(async (req, res) => {
         secure: process.env.NODE_ENV === "production",
         path: "/"
     });
+    res.cookie("refreshToken", newPlainToken, {
+        httpOnly: true,
+        maxAge: parseInt(process.env.REFRESH_TOKEN_EXPIRY),
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        path: "/",
+    })
     return success(res, {
         accessToken: newAccessToken
     }, 'Access token refreshed successfully', 200);
