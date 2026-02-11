@@ -4,7 +4,7 @@ const userSchema = require("../models/user.model");
 const {CustomError} = require("../helpers/customError");
 const inviteSchema = require("../models/Invite.model");
 const refreshTokenSchema = require("../models/refreshToken.model");
-const {welcomeTemplate} = require("../template/emailTemplate")
+const {welcomeTemplate, passwordResetTemplate} = require("../template/emailTemplate")
 const {sendEmail} = require("../utils/sendEmail");
 exports.registerUser = asyncHandler(async (req, res) => {
     const {name, email, password, token} = req.body;
@@ -178,4 +178,92 @@ exports.getRefreshToken = asyncHandler(async (req, res) => {
     return success(res, {
         accessToken: newAccessToken
     }, 'Access token refreshed successfully', 200);
+})
+// Logout controller
+exports.logoutUser = asyncHandler(async (req, res) => {
+    const {refreshToken} = req.cookies;
+    if (refreshToken) {
+        const activeToken = await refreshTokenSchema.find({
+            isRevoked: false,
+            expiresAt: {$gt: new Date()}
+        }).populate("user");
+        for (const token of activeToken) {
+            const isMatch = await token.compareToken(refreshToken);
+            if (isMatch) {
+                await token.revoke(req.ip, "User logged out");
+                break;
+            }
+        }
+    }
+    res.clearCookie("accessToken", {path: "/"});
+    res.clearCookie("refreshToken", {path: "/"});
+    return success(res, null, 'User logged out successfully', 200);
+})
+// Log out all devices controller
+exports.logoutAllDevices = asyncHandler(async (req, res) => {
+    const userId = req.user.id;
+    await refreshTokenSchema.revokeAllTokensForUser(userId, req.ip, "User logged out from all devices");
+    res.clearCookie("accessToken", {path: "/"});
+    res.clearCookie("refreshToken", {path: "/"});
+    return success(res, null, 'User logged out from all devices successfully', 200);
+})
+
+// forgot password controller
+exports.forgotPassword = asyncHandler(async (req, res) => {
+    const {email} = req.body;
+    const user = await userSchema.findOne({email: email.toLowerCase().trim(), isDeleted: false});
+    if (!user) {
+        throw new CustomError('User with this email does not exist', 400);
+    }
+    const resetToken = user.generateResetPasswordToken();
+    await user.save();
+    // send email with reset link
+    const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
+    const emailSubject = "Password Reset Request";
+   const emailBody = passwordResetTemplate({
+        name: user.name,
+        resetLink,
+       resetToken
+    });
+    await sendEmail(user.email, emailBody, emailSubject);
+    return success(res, null, 'Password reset link sent to your email', 200);
+})
+// reset password controller
+exports.resetPassword = asyncHandler(async (req, res) => {
+    const {token, password, confirmPassword} = req.body;
+    const user = await userSchema.findOne({
+        resetPasswordTokenHash: token,
+        resetPasswordExpires: {$gt: new Date()},
+        isDeleted: false
+    });
+    if (!user) {
+        throw new CustomError('Invalid or expired password reset token', 400);
+    }
+    if (password !== confirmPassword) {
+        throw new CustomError('Password and confirm password do not match', 400);
+    }
+    user.password = password;
+    user.resetPasswordTokenHash = null;
+    user.resetPasswordExpires = null;
+    await user.save();
+    return success(res, null, 'Password reset successfully', 200);
+})
+//change password controller
+exports.changePassword = asyncHandler(async (req, res) => {
+    const userId = req.user.id;
+    const {currentPassword, newPassword, confirmNewPassword} = req.body;
+    const user = await userSchema.findById(userId).select('+password');
+    if (!user) {
+        throw new CustomError('User not found', 404);
+    }
+    const isMatch = await user.comparePassword(currentPassword);
+    if (!isMatch) {
+        throw new CustomError('Current password is incorrect', 400);
+    }
+    if (newPassword !== confirmNewPassword) {
+        throw new CustomError('New password and confirm password do not match', 400);
+    }
+    user.password = newPassword;
+    await user.save();
+    return success(res, null, 'Password changed successfully', 200);
 })
