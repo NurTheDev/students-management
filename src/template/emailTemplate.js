@@ -612,8 +612,9 @@ const welcomeTemplate = ({
 // ==========================================
 
 const passwordResetTemplate = ({
-                                   userName,
+                                   name,
                                    resetUrl,
+                                   resetToken : token,
                                    expiresIn = '1 hour',
                                }) => {
     const content = `
@@ -655,7 +656,7 @@ const passwordResetTemplate = ({
             margin: 0 0 16px 0;
             font-size: 18px;
             color: ${brandConfig.textColor};
-        ">Hi ${userName},</p>
+        ">Hi ${name},</p>
         
         <!-- Main message -->
         <p style="
@@ -719,7 +720,7 @@ const passwordResetTemplate = ({
             color: ${brandConfig.lightTextColor};
             text-align: center;
         ">
-            If the button doesn't work, copy and paste this link:
+            If the button doesn't work, copy and paste this code into the password reset page:
         </p>
         <p style="
             margin: 0;
@@ -731,7 +732,7 @@ const passwordResetTemplate = ({
             padding: 12px;
             border-radius: 6px;
         ">
-            ${resetUrl}
+            ${token}
         </p>
     `;
 

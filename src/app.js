@@ -4,6 +4,7 @@ const cors = require("cors");
 const morgan = require("morgan");
 const path = require("node:path");
 const cookieParser = require('cookie-parser')
+const multerErrorHandler = require("./middlewares/multerError");
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({extended: true}));
@@ -33,6 +34,8 @@ app.use((req, res) => {
 });
 global.appRoot = path.resolve(__dirname)
 console.log(global.appRoot, "app root path");
+// multer error handler
+app.use(multerErrorHandler);
 // global error handler
 app.use(globalErrorHandler);
 

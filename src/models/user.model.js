@@ -30,12 +30,12 @@ const userSchema = new Schema({
     role: {
         type: String,
         enum: {
-            values: ["ADMIN", "TEACHER", "STAFF", "STUDENT"],
+            values: ["ADMIN", "TEACHER", "STAFF", "USER"],
             message: '{VALUE} is not a valid role'
         },
-        required: [true, 'Role is required']
+        required: [true, 'Role is required'],
+        default: 'USER'
     },
-
     status: {
         type: String,
         enum: {
@@ -44,7 +44,6 @@ const userSchema = new Schema({
         },
         default: "ACTIVE"
     },
-
     isDeleted: {
         type: Boolean,
         default: false,
@@ -78,7 +77,6 @@ const userSchema = new Schema({
         type: Date,
         default: null
     },
-
     institute: {
         type: Schema.Types.ObjectId,
         ref: "Institute"
@@ -182,5 +180,12 @@ userSchema.methods.restore = async function(originalEmail) {
 // Find by email with password for login
 userSchema.statics.findByEmailWithPassword = function(email) {
     return this.findOne({email: email.toLowerCase().trim(), isDeleted: false}).select('+password');
+}
+// genarate reset password token
+userSchema.methods.generateResetPasswordToken = function() {
+    const token = require('crypto').randomBytes(20).toString('hex');
+    this.resetPasswordTokenHash = token;
+    this.resetPasswordExpires = Date.now() + 3600000; // 1 hour
+    return token;
 }
 module.exports = mongoose.models.User || mongoose.model('User', userSchema);
