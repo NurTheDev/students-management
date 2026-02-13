@@ -130,6 +130,7 @@ refreshTokenSchema.statics.removeExpiredTokens = async function (){
 
     })
 }
+
 module.exports = mongoose.models.RefreshToken || mongoose.model('RefreshToken', refreshTokenSchema);
 
 module.exports = mongoose.model('RefreshToken', refreshTokenSchema);
