@@ -8,5 +8,4 @@ router.use("/classrooms", classroomRouter);
 router.use("/auth", authRouter);
 router.use("/invites", inviteRouter);
 router.use("/user", userRouter)
-
 module.exports = router;

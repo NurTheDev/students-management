@@ -126,6 +126,7 @@ exports.loginUser = asyncHandler(async (req, res) => {
             id: userWithPassword._id,
             name: userWithPassword.name,
             email: userWithPassword.email,
+            role: userWithPassword.role
         },
         accessToken,
         refreshToken: refreshToken.tokenHash
@@ -157,7 +158,10 @@ exports.getRefreshToken = asyncHandler(async (req, res) => {
     // revoke old token
     await storedToken.revoke(req.ip, "Used for refresh");
     const newAccessToken = user.getAccessToken();
-    const {refreshToken: newRefreshToken, token: newPlainToken} = await refreshTokenSchema.createToken(user._id, req.ip, req.headers['user-agent']);
+    const {
+        refreshToken: newRefreshToken,
+        token: newPlainToken
+    } = await refreshTokenSchema.createToken(user._id, req.ip, req.headers['user-agent']);
     // link old token with new token for audit
     storedToken.replacedByToken = newRefreshToken._id;
     await storedToken.save();
@@ -220,10 +224,10 @@ exports.forgotPassword = asyncHandler(async (req, res) => {
     // send email with reset link
     const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
     const emailSubject = "Password Reset Request";
-   const emailBody = passwordResetTemplate({
+    const emailBody = passwordResetTemplate({
         name: user.name,
         resetLink,
-       resetToken
+        resetToken
     });
     await sendEmail(user.email, emailBody, emailSubject);
     return success(res, null, 'Password reset link sent to your email', 200);
@@ -253,6 +257,7 @@ exports.changePassword = asyncHandler(async (req, res) => {
     const userId = req.user.id;
     const {currentPassword, newPassword, confirmNewPassword} = req.body;
     const user = await userSchema.findById(userId).select('+password');
+    console.log(user)
     if (!user) {
         throw new CustomError('User not found', 404);
     }

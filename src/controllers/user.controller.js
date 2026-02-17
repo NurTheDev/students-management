@@ -5,11 +5,12 @@ const {CustomError} = require("../helpers/customError");
 const {uploadImage, deleteImage} = require("../helpers/cloudinary");
 exports.getProfile = asyncHandler(async (req, res, next) => {
     try {
+        console.log(req)
         const user = await userSchema.findById(req.user.id).select("-password -__v");
         if (!user) {
             return next(new CustomError("User not found", 404));
         }
-        success(res, "User profile fetched successfully", user);
+        success(res, user, "User profile fetched successfully", 200);
     } catch (error) {
         next(error);
     }
@@ -27,10 +28,10 @@ exports.updateProfile = asyncHandler(async (req, res, next) => {
         if (name) user.name = name;
         if (bio) user.bio = bio;
         if (dateOfBirth) user.dateOfBirth = dateOfBirth;
-        if(req.files?.image?.[0]){
+        if (req.files?.image?.[0]) {
             const imageFile = req.files.image[0]
             // delete old image from cloudinary
-            if(user.image?.public_id){
+            if (user.image?.public_id) {
                 await deleteImage(user.image.public_id)
             }
             // upload new image to cloudinary
@@ -157,6 +158,66 @@ exports.createUser = asyncHandler(async (req, res, next) => {
             name: newUser.name,
             role: newUser.role
         }, "User created successfully", 201);
+    } catch (error) {
+        next(error);
+    }
+});
+//update user role by id (Admin only)
+exports.updateRole = asyncHandler(async (req, res, next) => {
+    try {
+        const {role} = req.body;
+        const {id} = req.params;
+        if (!role || !["ADMIN", "TEACHER", "STAFF", "USER"].includes(role)) {
+            return next(new CustomError("Invalid role. Allowed values are ADMIN, TEACHER, STAFF or USER", 400));
+        }
+        const user = await userSchema.findById(id);
+        if (!user) {
+            return next(new CustomError("User not found", 404));
+        }
+        user.role = role;
+        await user.save();
+        success(res, {
+            id: user._id,
+            email: user.email,
+            phone: user.phone,
+            name: user.name,
+            role: user.role
+        }, "User role updated successfully", 200);
+    } catch (error) {
+        next(error);
+    }
+});
+exports.updateProfileImage = asyncHandler(async (req, res, next) => {
+    try {
+        const user = await userSchema.findById(req.user.id);
+        if (!user) {
+            return next(new CustomError("User not found", 404));
+        }
+        if (req.files?.image?.[0]) {
+            const imageFile = req.files.image[0]
+            // delete old image from cloudinary
+            if (user.image?.public_id) {
+                await deleteImage(user.image.public_id)
+            }
+            // upload new image to cloudinary
+            const result = await uploadImage(imageFile.path)
+            user.image = {
+                url: result.secure_url,
+                public_id: result.public_id
+            }
+        } else {
+            return next(new CustomError("No image file uploaded", 400));
+        }
+        await user.save();
+        success(res, {
+            id: user._id,
+            email: user.email,
+            phone: user.phone,
+            name: user.name,
+            bio: user.bio,
+            dateOfBirth: user.dateOfBirth,
+            image: user.image
+        }, "User profile image updated successfully", 200);
     } catch (error) {
         next(error);
     }

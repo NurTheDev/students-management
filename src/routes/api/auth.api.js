@@ -18,7 +18,7 @@ const {
     resetPasswordSchema,
     changePasswordSchema
 } = require("../../validators/auth.validator");
-const {authGard} = require("../../middlewares/Authorization");
+const {authGard, authorize} = require("../../middlewares/Authorization");
 
 router.post("/register-via-invite", validate(createUserSchema), registerUser);
 router.post("/login", validate(loginSchema), loginUser);
@@ -27,6 +27,6 @@ router.post("/logout", authGard, logoutUser);
 router.post("/logout-all-devices", authGard, logoutAllDevices);
 router.post("/forgot-password", validate(forgotPasswordSchema), forgotPassword);
 router.post("/reset-password", validate(resetPasswordSchema), resetPassword);
-router.post("/change-password", authGard, validate(changePasswordSchema), changePassword);
+router.post("/change-password", authGard, authorize("USER"), validate(changePasswordSchema), changePassword);
 
 module.exports = router;
